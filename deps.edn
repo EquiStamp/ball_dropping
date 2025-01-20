@@ -1,0 +1,18 @@
+{:paths ["src/clj" "src/cljs"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.clojure/clojurescript {:mvn/version "1.11.60"}
+        thheller/shadow-cljs {:mvn/version "2.25.2"}
+        reagent/reagent {:mvn/version "1.2.0"}
+        cljs-http/cljs-http {:mvn/version "0.1.46"}
+        com.cognitect/transit-cljs {:mvn/version "0.8.280"}
+        
+        ;; Server deps
+        ring/ring-core {:mvn/version "1.11.0"}
+        ring/ring-jetty-adapter {:mvn/version "1.11.0"}
+        ring-cors/ring-cors {:mvn/version "0.1.13"}
+        metosin/reitit {:mvn/version "0.7.0-alpha7"}
+        metosin/muuntaja {:mvn/version "0.6.8"}
+        org.slf4j/slf4j-simple {:mvn/version "2.0.12"}}
+ 
+ :aliases
+ {:server {:main-opts ["-m" "ball-dropping.server"]}}} 

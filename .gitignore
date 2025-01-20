@@ -1,0 +1,43 @@
+# Clojure/ClojureScript
+/target
+/classes
+/checkouts
+/resources/public/js
+/resources/public/cljs-out
+/.shadow-cljs
+/.clj-kondo/.cache
+/.lsp
+pom.xml
+pom.xml.asc
+*.jar
+*.class
+
+# Node/NPM
+/node_modules
+/package-lock.json
+/.npm
+/.node_repl_history
+
+# IDE/Editor
+/.idea
+/.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+/log
+
+# Local config
+.env
+.env.local
+.env.*.local
+
+# Build directories
+/out
+/build
+/dist
+
+/public/js/
