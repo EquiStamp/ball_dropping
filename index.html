@@ -57,37 +57,51 @@
         }
 
         .ball {
-            padding: 12px;
+            padding: 16px;
             border-radius: 8px;
             background-color: #fff;
             border: 1px solid #ddd;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            transition: all 0.3s ease;
-            gap: 12px;
             position: relative;
+            transition: all 0.3s ease;
         }
 
         .ball:hover {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .check-icon {
-            color: #999;
-            font-size: 1.2em;
-            cursor: pointer;
-            padding: 8px;
-            margin: -8px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-            opacity: 0;
-            pointer-events: auto;
-            position: relative;
+        .ball-actions {
+            display: flex;
+            gap: 4px;
+            position: absolute;
+            right: 12px;
+            top: 16px;
+            visibility: hidden;
+            z-index: 1;
         }
 
-        .check-icon::after {
-            content: "Mark as checked";
+        .ball:hover .ball-actions {
+            visibility: visible;
+        }
+
+        .check-icon, .edit-icon, .resolve-icon, .delete-icon {
+            color: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            position: relative;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .check-icon::after,
+        .edit-icon::after,
+        .resolve-icon::after,
+        .delete-icon::after {
             position: absolute;
             background: rgba(0, 0, 0, 0.8);
             color: white;
@@ -100,30 +114,28 @@
             margin-top: 4px;
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.2s ease, visibility 0s linear 0.5s;
+            transition: opacity 0.2s ease 0.5s, visibility 0s linear 0.5s;
             pointer-events: none;
+            z-index: 2;
         }
 
-        .check-icon:hover::after {
+        .check-icon::after { content: "Mark as checked"; }
+        .edit-icon::after { content: "Edit item"; }
+        .resolve-icon::after { content: "Mark as resolved"; }
+        .delete-icon::after { content: "Delete item"; }
+
+        .check-icon:hover::after,
+        .edit-icon:hover::after,
+        .resolve-icon:hover::after,
+        .delete-icon:hover::after {
             opacity: 1;
             visibility: visible;
-            transition-delay: 0.5s;
-        }
-
-        .ball:hover .check-icon {
-            opacity: 1;
-        }
-
-        .check-icon:hover {
-            background-color: #f5f5f5;
-            color: #4CAF50;
         }
 
         .ball-info {
-            flex-grow: 1;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
             cursor: default;
             pointer-events: none;
         }
@@ -131,21 +143,23 @@
         .ball-name {
             font-weight: 600;
             font-size: 1.1em;
-            margin-bottom: 0;
+            margin: 0;
+            color: #000;
         }
 
         .ball-meta {
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            font-size: 0.85em;
+            gap: 2px;
+            font-size: 0.9em;
             color: #666;
         }
 
         .ball-meta-line {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
         }
 
         .ball-meta-line > span {
@@ -288,9 +302,10 @@
             font-weight: 500;
             padding: 2px 6px;
             border-radius: 4px;
-            font-size: 0.85em;
+            font-size: 0.9em;
             white-space: nowrap;
-            margin: 0 2px;
+            margin: 0;
+            display: inline-block;
         }
 
         .due-date.overdue {
@@ -311,7 +326,7 @@
             font-weight: 600;
             padding: 2px 6px;
             border-radius: 3px;
-            margin: 0 2px;
+            margin: 0;
         }
 
         .importance-critical .importance-badge { background-color: #f44336; color: white; }
@@ -349,6 +364,30 @@
             color: #999;
             font-size: 0.85em;
         }
+
+        .ball.resolved {
+            opacity: 0.6;
+            background-color: #f5f5f5;
+            border-left-color: #999 !important;
+        }
+
+        .ball.resolved .importance-badge {
+            background-color: #999;
+        }
+
+        /* Priority-based button backgrounds */
+        .importance-critical .ball-actions > div { background-color: #d32f2f; }
+        .importance-high .ball-actions > div { background-color: #f57c00; }
+        .importance-medium .ball-actions > div { background-color: #689f38; }
+        .importance-low .ball-actions > div { background-color: #303f9f; }
+
+        /* Hover effects */
+        .importance-critical .ball-actions > div:hover { background-color: #b71c1c; }
+        .importance-high .ball-actions > div:hover { background-color: #e65100; }
+        .importance-medium .ball-actions > div:hover { background-color: #558b2f; }
+        .importance-low .ball-actions > div:hover { background-color: #1a237e; }
+
+        .check-icon::after,
     </style>
 </head>
 <body>
@@ -390,6 +429,7 @@
                 this.dueDate = dueDate ? new Date(dueDate).getTime() : null;
                 this.createdAt = Date.now();
                 this.lastChecked = Date.now();
+                this.resolved = false;
             }
 
             getImportanceMultiplier() {
@@ -402,6 +442,7 @@
             }
 
             getUrgencyScore() {
+                if (this.resolved) return -1; // Always at the bottom
                 const importanceMultiplier = this.getImportanceMultiplier();
                 const now = Date.now();
                 
@@ -503,6 +544,7 @@
         let history = [];
         let redoStack = [];
         const MAX_HISTORY = 50;
+        let editingBallId = null;
 
         function addToHistory(action) {
             history.push(action);
@@ -557,19 +599,185 @@
             });
         }
 
+        function startEdit(index, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const ball = balls[index];
+            editingBallId = ball.id;
+            
+            // Populate form
+            document.getElementById('name').value = ball.name;
+            document.getElementById('responsible').value = ball.responsible;
+            document.getElementById('ticket').value = ball.ticket || '';
+            document.getElementById('importance').value = ball.importance;
+            if (ball.dueDate) {
+                const date = new Date(ball.dueDate);
+                document.getElementById('dueDate').value = date.toISOString().slice(0, 16);
+            } else {
+                document.getElementById('dueDate').value = '';
+            }
+
+            // Update buttons
+            const addButton = document.querySelector('.add-form button');
+            addButton.style.display = 'none';
+            
+            // Add update and cancel buttons if they don't exist
+            if (!document.querySelector('.form-buttons')) {
+                const formButtons = document.createElement('div');
+                formButtons.className = 'form-buttons';
+                formButtons.innerHTML = `
+                    <button onclick="updateBall()" class="update-button">Update Item</button>
+                    <button onclick="cancelEdit()" class="cancel-button">Cancel</button>
+                `;
+                addButton.parentNode.appendChild(formButtons);
+            }
+
+            // Scroll form into view
+            document.querySelector('.add-form').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function cancelEdit() {
+            editingBallId = null;
+            clearForm();
+            resetFormButtons();
+        }
+
+        function resetFormButtons() {
+            const addButton = document.querySelector('.add-form button');
+            addButton.style.display = '';
+            const formButtons = document.querySelector('.form-buttons');
+            if (formButtons) {
+                formButtons.remove();
+            }
+        }
+
+        function updateBall() {
+            const name = document.getElementById('name').value;
+            const responsible = document.getElementById('responsible').value;
+            const ticket = document.getElementById('ticket').value;
+            const importance = document.getElementById('importance').value;
+            const dueDate = document.getElementById('dueDate').value;
+
+            if (!name || !responsible) {
+                alert('Name and responsible person are required!');
+                return;
+            }
+
+            const ball = balls.find(b => b.id === editingBallId);
+            if (ball) {
+                const previousState = { ...ball };
+                
+                ball.name = name;
+                ball.responsible = responsible;
+                ball.ticket = ticket;
+                ball.importance = importance;
+                ball.dueDate = dueDate ? new Date(dueDate).getTime() : null;
+
+                addToHistory({
+                    ballId: ball.id,
+                    type: 'edit',
+                    previousState,
+                    timestamp: Date.now()
+                });
+            }
+
+            editingBallId = null;
+            clearForm();
+            resetFormButtons();
+            updateDisplay();
+        }
+
+        function resolveBall(index, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const ball = balls[index];
+            const previousState = { ...ball };
+            ball.resolved = !ball.resolved; // Toggle resolved state
+            
+            addToHistory({
+                ballId: ball.id,
+                type: 'resolve',
+                previousState,
+                timestamp: Date.now()
+            });
+            
+            requestAnimationFrame(() => {
+                updateDisplay();
+            });
+        }
+
+        function deleteBall(index, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            const ball = balls[index];
+            const previousState = { ...ball };
+            const previousIndex = index;
+            
+            balls.splice(index, 1);
+            
+            addToHistory({
+                ballId: ball.id,
+                type: 'delete',
+                previousState,
+                previousIndex,
+                timestamp: Date.now()
+            });
+            
+            requestAnimationFrame(() => {
+                updateDisplay();
+            });
+        }
+
         function undo() {
             const lastAction = history.pop();
-            if (lastAction && lastAction.type === 'check') {
-                const ball = balls.find(b => b.id === lastAction.ballId);
-                if (ball) {
-                    const redoAction = {
-                        ballId: ball.id,
-                        type: 'check',
-                        previousChecked: ball.lastChecked,
+            if (lastAction) {
+                if (lastAction.type === 'delete') {
+                    // Create a new Ball instance from the previous state
+                    const restoredBall = new Ball(
+                        lastAction.previousState.name,
+                        lastAction.previousState.responsible,
+                        lastAction.previousState.ticket,
+                        lastAction.previousState.importance,
+                        lastAction.previousState.dueDate
+                    );
+                    // Restore other properties
+                    restoredBall.id = lastAction.previousState.id;
+                    restoredBall.lastChecked = lastAction.previousState.lastChecked;
+                    restoredBall.createdAt = lastAction.previousState.createdAt;
+                    restoredBall.resolved = lastAction.previousState.resolved;
+
+                    balls.splice(lastAction.previousIndex, 0, restoredBall);
+                    redoStack.push({
+                        ballId: lastAction.ballId,
+                        type: 'delete',
+                        previousState: { ...restoredBall },
+                        previousIndex: lastAction.previousIndex,
                         timestamp: lastAction.timestamp
-                    };
-                    redoStack.push(redoAction);
-                    ball.lastChecked = lastAction.previousChecked;
+                    });
+                } else {
+                    const ball = balls.find(b => b.id === lastAction.ballId);
+                    if (ball) {
+                        const redoAction = {
+                            ballId: ball.id,
+                            type: lastAction.type,
+                            previousState: { ...ball },
+                            timestamp: lastAction.timestamp
+                        };
+                        redoStack.push(redoAction);
+                        
+                        if (lastAction.type === 'check') {
+                            ball.lastChecked = lastAction.previousChecked;
+                        } else {
+                            Object.assign(ball, lastAction.previousState);
+                        }
+                    }
                 }
             }
             localStorage.setItem('history', JSON.stringify(history));
@@ -582,17 +790,28 @@
 
         function redo() {
             const nextAction = redoStack.pop();
-            if (nextAction && nextAction.type === 'check') {
+            if (nextAction) {
                 const ball = balls.find(b => b.id === nextAction.ballId);
                 if (ball) {
-                    const undoAction = {
-                        ballId: ball.id,
-                        type: 'check',
-                        previousChecked: ball.lastChecked,
-                        timestamp: nextAction.timestamp
-                    };
-                    history.push(undoAction);
-                    ball.lastChecked = nextAction.previousChecked;
+                    if (nextAction.type === 'check') {
+                        const undoAction = {
+                            ballId: ball.id,
+                            type: 'check',
+                            previousChecked: ball.lastChecked,
+                            timestamp: nextAction.timestamp
+                        };
+                        history.push(undoAction);
+                        ball.lastChecked = nextAction.previousChecked;
+                    } else if (nextAction.type === 'edit') {
+                        const undoAction = {
+                            ballId: ball.id,
+                            type: 'edit',
+                            previousState: { ...ball },
+                            timestamp: nextAction.timestamp
+                        };
+                        history.push(undoAction);
+                        Object.assign(ball, nextAction.previousState);
+                    }
                 }
             }
             localStorage.setItem('history', JSON.stringify(history));
@@ -622,7 +841,7 @@
                 const element = document.createElement('div');
                 const statusClass = ball.getStatusClass();
                 
-                element.className = `ball importance-${ball.importance} ${statusClass}`;
+                element.className = `ball importance-${ball.importance} ${statusClass} ${ball.resolved ? 'resolved' : ''}`;
                 
                 const daysSinceChecked = Math.floor((Date.now() - ball.lastChecked) / (1000 * 60 * 60 * 24));
                 const timeSinceChecked = daysSinceChecked > 0 
@@ -641,10 +860,16 @@
                             ${ball.formatDueDate() ? `<div class="ball-meta-line">${ball.formatDueDate()}</div>` : ''}
                             <div class="ball-meta-line">
                                 <span>Last checked ${timeSinceChecked}</span>
+                                ${ball.resolved ? '<span>Resolved</span>' : ''}
                             </div>
                         </div>
                     </div>
-                    <div class="check-icon" onclick="checkBall(${index}, event)">✓</div>
+                    <div class="ball-actions">
+                        <div class="edit-icon" onclick="startEdit(${index}, event)">✎</div>
+                        <div class="check-icon" onclick="checkBall(${index}, event)">✓</div>
+                        <div class="resolve-icon" onclick="resolveBall(${index}, event)">${ball.resolved ? '⚐' : '⚑'}</div>
+                        <div class="delete-icon" onclick="deleteBall(${index}, event)">×</div>
+                    </div>
                 `;
                 
                 container.appendChild(element);
