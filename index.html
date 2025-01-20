@@ -83,6 +83,31 @@
             transition: all 0.2s ease;
             opacity: 0;
             pointer-events: auto;
+            position: relative;
+        }
+
+        .check-icon::after {
+            content: "Mark as checked";
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0s linear 0.5s;
+            pointer-events: none;
+        }
+
+        .check-icon:hover::after {
+            opacity: 1;
+            visibility: visible;
+            transition-delay: 0.5s;
         }
 
         .ball:hover .check-icon {
@@ -179,6 +204,47 @@
             grid-template-columns: 1fr 1fr;
         }
 
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .history-button {
+            background-color: transparent;
+            border: 1px solid #ddd;
+            color: #666;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .history-button:hover:not(:disabled) {
+            background-color: #f5f5f5;
+            border-color: #999;
+            color: #333;
+        }
+
+        .history-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .undo-button::before {
+            content: "↺";
+            font-size: 1.2em;
+        }
+
+        .redo-button::before {
+            content: "↻";
+            font-size: 1.2em;
+        }
+
         .add-form input {
             padding: 8px;
             border: 1px solid #ddd;
@@ -252,6 +318,37 @@
         .importance-high .importance-badge { background-color: #ff9800; color: white; }
         .importance-medium .importance-badge { background-color: #8bc34a; color: white; }
         .importance-low .importance-badge { background-color: #3f51b5; color: white; }
+
+        .check-history {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 8px;
+            margin-top: 4px;
+            z-index: 10;
+            display: none;
+            min-width: 200px;
+        }
+
+        .ball:hover .check-history {
+            display: block;
+        }
+
+        .history-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 0;
+        }
+
+        .history-time {
+            color: #999;
+            font-size: 0.85em;
+        }
     </style>
 </head>
 <body>
@@ -272,6 +369,11 @@
             <button onclick="addBall()">Add Item</button>
         </div>
 
+        <div class="controls">
+            <button class="history-button undo-button" onclick="undo()" id="undoButton" disabled>Undo</button>
+            <button class="history-button redo-button" onclick="redo()" id="redoButton" disabled>Redo</button>
+        </div>
+
         <div class="ball-container" id="ballContainer">
             <!-- Balls will be added here dynamically -->
         </div>
@@ -280,6 +382,7 @@
     <script>
         class Ball {
             constructor(name, responsible, ticket, importance, dueDate = null) {
+                this.id = crypto.randomUUID();
                 this.name = name;
                 this.responsible = responsible;
                 this.ticket = ticket;
@@ -372,9 +475,50 @@
 
                 return `<span class="due-date">Due ${date.toLocaleDateString()}</span>`;
             }
+
+            addCheck() {
+                const timestamp = Date.now();
+                this.lastChecked = timestamp;
+            }
+
+            revertToCheck(timestamp) {
+                this.lastChecked = timestamp;
+            }
+
+            formatHistoryTime(timestamp) {
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diff = now - date;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor(diff / (1000 * 60));
+
+                if (days > 0) return `${days}d ago`;
+                if (hours > 0) return `${hours}h ago`;
+                return `${minutes}m ago`;
+            }
         }
 
         let balls = [];
+        let history = [];
+        let redoStack = [];
+        const MAX_HISTORY = 50;
+
+        function addToHistory(action) {
+            history.push(action);
+            redoStack = []; // Clear redo stack when new action is added
+            if (history.length > MAX_HISTORY) {
+                history.shift();
+            }
+            localStorage.setItem('history', JSON.stringify(history));
+            localStorage.setItem('redoStack', JSON.stringify(redoStack));
+            updateHistoryButtons();
+        }
+
+        function updateHistoryButtons() {
+            document.getElementById('undoButton').disabled = history.length === 0;
+            document.getElementById('redoButton').disabled = redoStack.length === 0;
+        }
 
         function addBall() {
             const name = document.getElementById('name').value;
@@ -399,7 +543,61 @@
                 event.preventDefault();
                 event.stopPropagation();
             }
-            balls[index].lastChecked = Date.now();
+            const ball = balls[index];
+            const previousChecked = ball.lastChecked;
+            ball.lastChecked = Date.now();
+            addToHistory({
+                ballId: ball.id,
+                type: 'check',
+                previousChecked,
+                timestamp: Date.now()
+            });
+            requestAnimationFrame(() => {
+                updateDisplay();
+            });
+        }
+
+        function undo() {
+            const lastAction = history.pop();
+            if (lastAction && lastAction.type === 'check') {
+                const ball = balls.find(b => b.id === lastAction.ballId);
+                if (ball) {
+                    const redoAction = {
+                        ballId: ball.id,
+                        type: 'check',
+                        previousChecked: ball.lastChecked,
+                        timestamp: lastAction.timestamp
+                    };
+                    redoStack.push(redoAction);
+                    ball.lastChecked = lastAction.previousChecked;
+                }
+            }
+            localStorage.setItem('history', JSON.stringify(history));
+            localStorage.setItem('redoStack', JSON.stringify(redoStack));
+            updateHistoryButtons();
+            requestAnimationFrame(() => {
+                updateDisplay();
+            });
+        }
+
+        function redo() {
+            const nextAction = redoStack.pop();
+            if (nextAction && nextAction.type === 'check') {
+                const ball = balls.find(b => b.id === nextAction.ballId);
+                if (ball) {
+                    const undoAction = {
+                        ballId: ball.id,
+                        type: 'check',
+                        previousChecked: ball.lastChecked,
+                        timestamp: nextAction.timestamp
+                    };
+                    history.push(undoAction);
+                    ball.lastChecked = nextAction.previousChecked;
+                }
+            }
+            localStorage.setItem('history', JSON.stringify(history));
+            localStorage.setItem('redoStack', JSON.stringify(redoStack));
+            updateHistoryButtons();
             requestAnimationFrame(() => {
                 updateDisplay();
             });
@@ -449,8 +647,6 @@
                     <div class="check-icon" onclick="checkBall(${index}, event)">✓</div>
                 `;
                 
-                element.onclick = null; // Remove the click handler from the entire card
-                
                 container.appendChild(element);
             });
 
@@ -460,7 +656,10 @@
         // Load saved balls on page load
         window.onload = function() {
             const savedBalls = localStorage.getItem('balls');
-            if (savedBalls && false ) {
+            const savedHistory = localStorage.getItem('history');
+            const savedRedoStack = localStorage.getItem('redoStack');
+            
+            if (savedBalls && false) {
                 balls = JSON.parse(savedBalls);
             } else {
                 // Test data
@@ -494,6 +693,16 @@
                     balls.push(ball);
                 });
             }
+
+            if (savedHistory) {
+                history = JSON.parse(savedHistory);
+            }
+            
+            if (savedRedoStack) {
+                redoStack = JSON.parse(savedRedoStack);
+            }
+            
+            updateHistoryButtons();
             updateDisplay();
         };
 
