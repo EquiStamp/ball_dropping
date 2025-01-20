@@ -134,9 +134,46 @@
             background-color: #1976D2;
         }
 
-        .priority-high { background-color: #ffebee; }
-        .priority-medium { background-color: #fff3e0; }
-        .priority-low { background-color: #f1f8e9; }
+        /* Importance base colors */
+        .importance-critical { background-color: #ffebee; border-left: 4px solid #f44336; }
+        .importance-high { background-color: #fff3e0; border-left: 4px solid #ff9800; }
+        .importance-medium { background-color: #f1f8e9; border-left: 4px solid #8bc34a; }
+        .importance-low { background-color: #e8eaf6; border-left: 4px solid #3f51b5; }
+
+        /* Due date status indicators */
+        .overdue { 
+            box-shadow: 0 2px 12px rgba(244, 67, 54, 0.4);
+            border-color: #f44336;
+        }
+        .due-soon { 
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+            border-color: #ff9800;
+        }
+        .aging { 
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .due-date {
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-right: 8px;
+        }
+
+        .due-date.overdue {
+            background-color: #ffebee;
+            color: #d32f2f;
+            border: 1px solid #f44336;
+            box-shadow: none;
+        }
+
+        .due-date.due-soon {
+            background-color: #fff3e0;
+            color: #f57c00;
+            border: 1px solid #ff9800;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body>
@@ -147,11 +184,13 @@
             <input type="text" id="name" placeholder="Item name" required>
             <input type="text" id="responsible" placeholder="Person responsible" required>
             <input type="text" id="ticket" placeholder="GitHub ticket">
-            <select id="priority">
-                <option value="low">Low Priority</option>
-                <option value="medium">Medium Priority</option>
-                <option value="high">High Priority</option>
+            <select id="importance">
+                <option value="low">Low Importance</option>
+                <option value="medium">Medium Importance</option>
+                <option value="high">High Importance</option>
+                <option value="critical">Critical</option>
             </select>
+            <input type="datetime-local" id="dueDate" placeholder="Due Date (optional)">
             <button onclick="addBall()">Add Item</button>
         </div>
 
@@ -162,12 +201,88 @@
 
     <script>
         class Ball {
-            constructor(name, responsible, ticket, priority) {
+            constructor(name, responsible, ticket, importance, dueDate = null) {
                 this.name = name;
                 this.responsible = responsible;
                 this.ticket = ticket;
-                this.priority = priority;
+                this.importance = importance;
+                this.dueDate = dueDate ? new Date(dueDate).getTime() : null;
+                this.createdAt = Date.now();
                 this.lastChecked = Date.now();
+            }
+
+            getImportanceMultiplier() {
+                return {
+                    'critical': 10,
+                    'high': 5,
+                    'medium': 2,
+                    'low': 1
+                }[this.importance];
+            }
+
+            getUrgencyScore() {
+                const importanceMultiplier = this.getImportanceMultiplier();
+                
+                if (this.dueDate) {
+                    const now = Date.now();
+                    const timeUntilDue = this.dueDate - now;
+                    
+                    if (timeUntilDue < 0) {
+                        // Overdue items get very high priority
+                        return 1000000 * importanceMultiplier;
+                    }
+                    
+                    // More urgent as we get closer to due date
+                    // Using 7 days as the "start getting urgent" threshold
+                    const daysUntilDue = timeUntilDue / (1000 * 60 * 60 * 24);
+                    if (daysUntilDue < 7) {
+                        return (1000000 / timeUntilDue) * importanceMultiplier;
+                    }
+                    return (100 / daysUntilDue) * importanceMultiplier;
+                } else {
+                    // No due date - increase score based on time since last check
+                    const daysSinceChecked = (Date.now() - this.lastChecked) / (1000 * 60 * 60 * 24);
+                    return Math.pow(daysSinceChecked, 1.5) * importanceMultiplier;
+                }
+            }
+
+            getStatusClass() {
+                if (!this.dueDate) {
+                    const daysSinceChecked = (Date.now() - this.lastChecked) / (1000 * 60 * 60 * 24);
+                    return daysSinceChecked > 7 ? 'aging' : '';
+                }
+
+                const timeUntilDue = this.dueDate - Date.now();
+                const daysUntilDue = timeUntilDue / (1000 * 60 * 60 * 24);
+
+                if (timeUntilDue < 0) return 'overdue';
+                if (daysUntilDue < 2) return 'due-soon';
+                return '';
+            }
+
+            formatDueDate() {
+                if (!this.dueDate) return '';
+                
+                const date = new Date(this.dueDate);
+                const now = new Date();
+                const timeUntilDue = this.dueDate - now.getTime();
+                const daysUntilDue = timeUntilDue / (1000 * 60 * 60 * 24);
+
+                if (timeUntilDue < 0) {
+                    const daysOverdue = Math.abs(Math.floor(daysUntilDue));
+                    return `<span class="due-date overdue">Overdue by ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''}</span>`;
+                }
+
+                if (daysUntilDue < 1) {
+                    const hoursUntilDue = timeUntilDue / (1000 * 60 * 60);
+                    return `<span class="due-date due-soon">Due in ${Math.floor(hoursUntilDue)} hours</span>`;
+                }
+
+                if (daysUntilDue < 7) {
+                    return `<span class="due-date due-soon">Due in ${Math.floor(daysUntilDue)} days</span>`;
+                }
+
+                return `<span class="due-date">Due ${date.toLocaleDateString()}</span>`;
             }
         }
 
@@ -177,14 +292,15 @@
             const name = document.getElementById('name').value;
             const responsible = document.getElementById('responsible').value;
             const ticket = document.getElementById('ticket').value;
-            const priority = document.getElementById('priority').value;
+            const importance = document.getElementById('importance').value;
+            const dueDate = document.getElementById('dueDate').value;
 
             if (!name || !responsible) {
                 alert('Name and responsible person are required!');
                 return;
             }
 
-            const ball = new Ball(name, responsible, ticket, priority);
+            const ball = new Ball(name, responsible, ticket, importance, dueDate);
             balls.push(ball);
             updateDisplay();
             clearForm();
@@ -199,20 +315,27 @@
             document.getElementById('name').value = '';
             document.getElementById('responsible').value = '';
             document.getElementById('ticket').value = '';
-            document.getElementById('priority').value = 'low';
+            document.getElementById('importance').value = 'low';
+            document.getElementById('dueDate').value = '';
         }
 
         function updateDisplay() {
             const container = document.getElementById('ballContainer');
             container.innerHTML = '';
 
-            // Sort balls by last checked time (newest first)
-            balls.sort((a, b) => b.lastChecked - a.lastChecked);
+            // Sort balls by urgency score
+            balls.sort((a, b) => b.getUrgencyScore() - a.getUrgencyScore());
 
             balls.forEach((ball, index) => {
-                const timeSinceCheck = Math.floor((Date.now() - ball.lastChecked) / 1000 / 60); // minutes
                 const element = document.createElement('div');
-                element.className = `ball priority-${ball.priority}`;
+                const statusClass = ball.getStatusClass();
+                
+                element.className = `ball importance-${ball.importance} ${statusClass}`;
+                
+                const daysSinceChecked = Math.floor((Date.now() - ball.lastChecked) / (1000 * 60 * 60 * 24));
+                const timeSinceChecked = daysSinceChecked > 0 
+                    ? `${daysSinceChecked} days ago`
+                    : `${Math.floor((Date.now() - ball.lastChecked) / (1000 * 60))} minutes ago`;
                 
                 element.innerHTML = `
                     <div class="ball-info">
@@ -220,7 +343,9 @@
                         <div class="ball-details">
                             Responsible: ${ball.responsible}<br>
                             ${ball.ticket ? `Ticket: <a href="https://github.com/issues/${ball.ticket.replace('GH-', '')}" target="_blank">${ball.ticket}</a><br>` : ''}
-                            Last checked: ${timeSinceCheck} minutes ago
+                            ${ball.formatDueDate()}
+                            Last checked: ${timeSinceChecked}<br>
+                            ${ball.importance.charAt(0).toUpperCase() + ball.importance.slice(1)} importance
                         </div>
                     </div>
                     <button class="check-button" onclick="checkBall(${index})">Check</button>
@@ -229,7 +354,6 @@
                 container.appendChild(element);
             });
 
-            // Store in localStorage
             localStorage.setItem('balls', JSON.stringify(balls));
         }
 
@@ -241,26 +365,26 @@
             } else {
                 // Test data
                 const testData = [
-                    { name: "Update Documentation", responsible: "Sarah", ticket: "GH-123", priority: "high" },
-                    { name: "Fix Security Vulnerability", responsible: "John", ticket: "GH-456", priority: "high" },
-                    { name: "Code Review Backend PR", responsible: "Mike", ticket: "GH-789", priority: "medium" },
-                    { name: "Weekly Team Meeting", responsible: "Emma", ticket: "", priority: "medium" },
-                    { name: "Deploy to Production", responsible: "Alex", ticket: "GH-234", priority: "high" },
-                    { name: "Update Dependencies", responsible: "Tom", ticket: "GH-567", priority: "low" },
-                    { name: "User Testing Session", responsible: "Lisa", ticket: "GH-890", priority: "medium" },
-                    { name: "Backup Database", responsible: "Dave", ticket: "GH-345", priority: "high" },
-                    { name: "Refactor Auth Module", responsible: "Rachel", ticket: "GH-678", priority: "medium" },
-                    { name: "Performance Testing", responsible: "Chris", ticket: "GH-901", priority: "low" },
-                    { name: "Update API Docs", responsible: "Nina", ticket: "GH-432", priority: "low" },
-                    { name: "Fix Mobile Layout", responsible: "Paul", ticket: "GH-765", priority: "medium" },
-                    { name: "Customer Support Meeting", responsible: "Helen", ticket: "", priority: "medium" },
-                    { name: "Load Testing", responsible: "Mark", ticket: "GH-098", priority: "low" },
-                    { name: "Security Audit", responsible: "Julia", ticket: "GH-321", priority: "high" }
+                    { name: "Update Documentation", responsible: "Sarah", ticket: "GH-123", importance: "high", dueDate: "2024-01-20" },
+                    { name: "Fix Security Vulnerability", responsible: "John", ticket: "GH-456", importance: "critical", dueDate: new Date(Date.now() + 1000 * 60 * 60 * 2).toISOString() }, // 2 hours from now
+                    { name: "Code Review Backend PR", responsible: "Mike", ticket: "GH-789", importance: "medium", dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString() }, // 1 day from now
+                    { name: "Weekly Team Meeting", responsible: "Emma", ticket: "", importance: "medium" },
+                    { name: "Deploy to Production", responsible: "Alex", ticket: "GH-234", importance: "critical", dueDate: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() }, // 1 day ago
+                    { name: "Update Dependencies", responsible: "Tom", ticket: "GH-567", importance: "low" },
+                    { name: "User Testing Session", responsible: "Lisa", ticket: "GH-890", importance: "medium", dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString() }, // 3 days from now
+                    { name: "Backup Database", responsible: "Dave", ticket: "GH-345", importance: "high" },
+                    { name: "Refactor Auth Module", responsible: "Rachel", ticket: "GH-678", importance: "medium" },
+                    { name: "Performance Testing", responsible: "Chris", ticket: "GH-901", importance: "low" },
+                    { name: "Update API Docs", responsible: "Nina", ticket: "GH-432", importance: "low", dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString() }, // 14 days from now
+                    { name: "Fix Mobile Layout", responsible: "Paul", ticket: "GH-765", importance: "medium" },
+                    { name: "Customer Support Meeting", responsible: "Helen", ticket: "", importance: "medium", dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2).toISOString() }, // 2 days from now
+                    { name: "Load Testing", responsible: "Mark", ticket: "GH-098", importance: "low" },
+                    { name: "Security Audit", responsible: "Julia", ticket: "GH-321", importance: "high", dueDate: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() } // 2 hours ago
                 ];
 
                 // Add test data with staggered check times
                 testData.forEach((item, index) => {
-                    const ball = new Ball(item.name, item.responsible, item.ticket, item.priority);
+                    const ball = new Ball(item.name, item.responsible, item.ticket, item.importance, item.dueDate);
                     // Stagger the last checked times from 5 minutes to 4 hours ago
                     ball.lastChecked = Date.now() - (5 + index * 15) * 60 * 1000;
                     balls.push(ball);
