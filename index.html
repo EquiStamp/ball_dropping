@@ -98,6 +98,19 @@
             justify-content: center;
         }
 
+        /* Priority-based button backgrounds */
+        .importance-critical .ball-actions > div { background-color: #d32f2f; }
+        .importance-high .ball-actions > div { background-color: #f57c00; }
+        .importance-medium .ball-actions > div { background-color: #689f38; }
+        .importance-low .ball-actions > div { background-color: #303f9f; }
+
+        /* Hover effects */
+        .importance-critical .ball-actions > div:hover { background-color: #b71c1c; }
+        .importance-high .ball-actions > div:hover { background-color: #e65100; }
+        .importance-medium .ball-actions > div:hover { background-color: #558b2f; }
+        .importance-low .ball-actions > div:hover { background-color: #1a237e; }
+
+        /* Tooltips */
         .check-icon::after,
         .edit-icon::after,
         .resolve-icon::after,
@@ -374,20 +387,6 @@
         .ball.resolved .importance-badge {
             background-color: #999;
         }
-
-        /* Priority-based button backgrounds */
-        .importance-critical .ball-actions > div { background-color: #d32f2f; }
-        .importance-high .ball-actions > div { background-color: #f57c00; }
-        .importance-medium .ball-actions > div { background-color: #689f38; }
-        .importance-low .ball-actions > div { background-color: #303f9f; }
-
-        /* Hover effects */
-        .importance-critical .ball-actions > div:hover { background-color: #b71c1c; }
-        .importance-high .ball-actions > div:hover { background-color: #e65100; }
-        .importance-medium .ball-actions > div:hover { background-color: #558b2f; }
-        .importance-low .ball-actions > div:hover { background-color: #1a237e; }
-
-        .check-icon::after,
     </style>
 </head>
 <body>
@@ -791,26 +790,35 @@
         function redo() {
             const nextAction = redoStack.pop();
             if (nextAction) {
-                const ball = balls.find(b => b.id === nextAction.ballId);
-                if (ball) {
-                    if (nextAction.type === 'check') {
+                if (nextAction.type === 'delete') {
+                    const ball = balls.find(b => b.id === nextAction.ballId);
+                    if (ball) {
                         const undoAction = {
                             ballId: ball.id,
-                            type: 'check',
-                            previousChecked: ball.lastChecked,
+                            type: 'delete',
+                            previousState: { ...ball },
+                            previousIndex: nextAction.previousIndex,
                             timestamp: nextAction.timestamp
                         };
                         history.push(undoAction);
-                        ball.lastChecked = nextAction.previousChecked;
-                    } else if (nextAction.type === 'edit') {
+                        balls.splice(balls.indexOf(ball), 1);
+                    }
+                } else {
+                    const ball = balls.find(b => b.id === nextAction.ballId);
+                    if (ball) {
                         const undoAction = {
                             ballId: ball.id,
-                            type: 'edit',
+                            type: nextAction.type,
                             previousState: { ...ball },
                             timestamp: nextAction.timestamp
                         };
+                        if (nextAction.type === 'check') {
+                            undoAction.previousChecked = ball.lastChecked;
+                            ball.lastChecked = nextAction.previousState.lastChecked;
+                        } else {
+                            Object.assign(ball, nextAction.previousState);
+                        }
                         history.push(undoAction);
-                        Object.assign(ball, nextAction.previousState);
                     }
                 }
             }
