@@ -1,13 +1,11 @@
 (ns ball-dropping.core
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
-            [cljs-http.client :as http]
-            [cljs.core.async :refer [<!]]
             [ball-dropping.state :as state]
             [ball-dropping.ball :as ball]
             [ball-dropping.app-state :refer [app-state]]
-            [clojure.string :as str])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+            [ball-dropping.views.settings :refer [settings-view]]
+            [clojure.string :as str]))
 
 ;; -------------------------
 ;; Components
@@ -89,8 +87,9 @@
 
 (defn controls []
   [:div.controls
-   [:button.history-button {:on-click #(state/undo!)
-                           :disabled (empty? (:history @app-state))} "↺"] ])
+   [:button.options-button {:on-click #(state/undo!)
+                           :disabled (empty? (:history @app-state))} "↺"]
+   [:button.options-button {:on-click #(swap! app-state update :show-settings not)} "⚙"]])
 
 (defn edit-form []
   (let [form-data (r/atom {})]
@@ -133,9 +132,11 @@
 (defn main-page []
   [:div
    [controls]
-   [ball-form]
-   [edit-form]
-   [ball-list]])
+   [settings-view]
+   [:div
+     [ball-form]
+     [edit-form]
+     [ball-list]]])
 
 ;; -------------------------
 ;; Initialize app

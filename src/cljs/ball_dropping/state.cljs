@@ -1,11 +1,8 @@
 (ns ball-dropping.state
-  (:require [reagent.core :as r]
-            [cljs-http.client :as http]
+  (:require [cljs-http.client :as http]
             [cljs.core.async :refer [<!]]
             [ball-dropping.app-state :refer [app-state]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
-
-(def api-url "http://localhost:3000/api")
 
 (defn- generate-id []
   (.toString (random-uuid)))
@@ -26,13 +23,13 @@
 
 ;; API Functions
 (defn- fetch-balls! []
-  (go (let [response (<! (http/get (str api-url "/balls")
+  (go (let [response (<! (http/get (str (-> @app-state :settings :api-url) "/balls")
                                   {:with-credentials? true}))]
         (when (:success response)
           (swap! app-state assoc :balls (:body response))))))
 
 (defn- save-balls! [balls]
-  (go (let [response (<! (http/post (str api-url "/balls")
+  (go (let [response (<! (http/post (str (-> @app-state :settings :api-url) "/balls")
                                    {:with-credentials? true
                                     :json-params balls}))]
         (when (:success response)
@@ -40,6 +37,7 @@
 
 ;; Public Functions
 (defn init! []
+  (reset! app-state (assoc @app-state :balls []))
   (fetch-balls!))
 
 (defn add-ball! [data]
