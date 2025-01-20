@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Dropping Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .ball-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        /* Responsive grid columns */
+        @media (min-width: 768px) {
+            .ball-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1200px) {
+            .ball-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (min-width: 1600px) {
+            .ball-container {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        /* Also make the form responsive */
+        @media (max-width: 767px) {
+            .add-form {
+                grid-template-columns: 1fr;
+            }
+            .add-form button {
+                grid-column: span 1;
+            }
+        }
+
+        .ball {
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .ball:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .ball-info {
+            flex-grow: 1;
+        }
+
+        .ball-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .ball-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .ball-details a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+
+        .ball-details a:hover {
+            text-decoration: underline;
+        }
+
+        .check-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .check-button:hover {
+            background-color: #45a049;
+        }
+
+        .add-form {
+            margin-bottom: 20px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .add-form input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .add-form button {
+            grid-column: span 2;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .add-form button:hover {
+            background-color: #1976D2;
+        }
+
+        .priority-high { background-color: #ffebee; }
+        .priority-medium { background-color: #fff3e0; }
+        .priority-low { background-color: #f1f8e9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ball Dropping Tracker</h1>
+        
+        <div class="add-form">
+            <input type="text" id="name" placeholder="Item name" required>
+            <input type="text" id="responsible" placeholder="Person responsible" required>
+            <input type="text" id="ticket" placeholder="GitHub ticket">
+            <select id="priority">
+                <option value="low">Low Priority</option>
+                <option value="medium">Medium Priority</option>
+                <option value="high">High Priority</option>
+            </select>
+            <button onclick="addBall()">Add Item</button>
+        </div>
+
+        <div class="ball-container" id="ballContainer">
+            <!-- Balls will be added here dynamically -->
+        </div>
+    </div>
+
+    <script>
+        class Ball {
+            constructor(name, responsible, ticket, priority) {
+                this.name = name;
+                this.responsible = responsible;
+                this.ticket = ticket;
+                this.priority = priority;
+                this.lastChecked = Date.now();
+            }
+        }
+
+        let balls = [];
+
+        function addBall() {
+            const name = document.getElementById('name').value;
+            const responsible = document.getElementById('responsible').value;
+            const ticket = document.getElementById('ticket').value;
+            const priority = document.getElementById('priority').value;
+
+            if (!name || !responsible) {
+                alert('Name and responsible person are required!');
+                return;
+            }
+
+            const ball = new Ball(name, responsible, ticket, priority);
+            balls.push(ball);
+            updateDisplay();
+            clearForm();
+        }
+
+        function checkBall(index) {
+            balls[index].lastChecked = Date.now();
+            updateDisplay();
+        }
+
+        function clearForm() {
+            document.getElementById('name').value = '';
+            document.getElementById('responsible').value = '';
+            document.getElementById('ticket').value = '';
+            document.getElementById('priority').value = 'low';
+        }
+
+        function updateDisplay() {
+            const container = document.getElementById('ballContainer');
+            container.innerHTML = '';
+
+            // Sort balls by last checked time (newest first)
+            balls.sort((a, b) => b.lastChecked - a.lastChecked);
+
+            balls.forEach((ball, index) => {
+                const timeSinceCheck = Math.floor((Date.now() - ball.lastChecked) / 1000 / 60); // minutes
+                const element = document.createElement('div');
+                element.className = `ball priority-${ball.priority}`;
+                
+                element.innerHTML = `
+                    <div class="ball-info">
+                        <div class="ball-name">${ball.name}</div>
+                        <div class="ball-details">
+                            Responsible: ${ball.responsible}<br>
+                            ${ball.ticket ? `Ticket: <a href="https://github.com/issues/${ball.ticket.replace('GH-', '')}" target="_blank">${ball.ticket}</a><br>` : ''}
+                            Last checked: ${timeSinceCheck} minutes ago
+                        </div>
+                    </div>
+                    <button class="check-button" onclick="checkBall(${index})">Check</button>
+                `;
+                
+                container.appendChild(element);
+            });
+
+            // Store in localStorage
+            localStorage.setItem('balls', JSON.stringify(balls));
+        }
+
+        // Load saved balls on page load
+        window.onload = function() {
+            const savedBalls = localStorage.getItem('balls');
+            if (savedBalls) {
+                balls = JSON.parse(savedBalls);
+            } else {
+                // Test data
+                const testData = [
+                    { name: "Update Documentation", responsible: "Sarah", ticket: "GH-123", priority: "high" },
+                    { name: "Fix Security Vulnerability", responsible: "John", ticket: "GH-456", priority: "high" },
+                    { name: "Code Review Backend PR", responsible: "Mike", ticket: "GH-789", priority: "medium" },
+                    { name: "Weekly Team Meeting", responsible: "Emma", ticket: "", priority: "medium" },
+                    { name: "Deploy to Production", responsible: "Alex", ticket: "GH-234", priority: "high" },
+                    { name: "Update Dependencies", responsible: "Tom", ticket: "GH-567", priority: "low" },
+                    { name: "User Testing Session", responsible: "Lisa", ticket: "GH-890", priority: "medium" },
+                    { name: "Backup Database", responsible: "Dave", ticket: "GH-345", priority: "high" },
+                    { name: "Refactor Auth Module", responsible: "Rachel", ticket: "GH-678", priority: "medium" },
+                    { name: "Performance Testing", responsible: "Chris", ticket: "GH-901", priority: "low" },
+                    { name: "Update API Docs", responsible: "Nina", ticket: "GH-432", priority: "low" },
+                    { name: "Fix Mobile Layout", responsible: "Paul", ticket: "GH-765", priority: "medium" },
+                    { name: "Customer Support Meeting", responsible: "Helen", ticket: "", priority: "medium" },
+                    { name: "Load Testing", responsible: "Mark", ticket: "GH-098", priority: "low" },
+                    { name: "Security Audit", responsible: "Julia", ticket: "GH-321", priority: "high" }
+                ];
+
+                // Add test data with staggered check times
+                testData.forEach((item, index) => {
+                    const ball = new Ball(item.name, item.responsible, item.ticket, item.priority);
+                    // Stagger the last checked times from 5 minutes to 4 hours ago
+                    ball.lastChecked = Date.now() - (5 + index * 15) * 60 * 1000;
+                    balls.push(ball);
+                });
+            }
+            updateDisplay();
+        };
+
+        // Update display every minute to refresh timestamps
+        setInterval(updateDisplay, 60000);
+    </script>
+</body>
+</html> 
