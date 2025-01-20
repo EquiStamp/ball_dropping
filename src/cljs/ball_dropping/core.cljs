@@ -77,12 +77,13 @@
     [:div.resolve-icon {:on-click #(state/resolve-ball! id)
                        :data-tooltip (if resolved "Mark as unresolved" "Mark as resolved")} 
      (if resolved "⚐" "⚑")]
-    [:div.delete-icon {:on-click #(state/delete-ball! id)
+    [:div.delete-icon {:on-click #(state/remove-ball! id)
                       :data-tooltip "Delete"} "×"]]])
 
 (defn ball-list []
   [:div.ball-list
-   (for [ball (sort-by ball/get-urgency-score > (:balls @app-state))]
+   (for [ball (->> (:balls @app-state)
+                   (sort-by (juxt :resolved (comp - ball/get-urgency-score))))]
      ^{:key (:id ball)} [ball-item ball])])
 
 (defn controls []

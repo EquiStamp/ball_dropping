@@ -35,6 +35,12 @@
         (when (:success response)
           (swap! app-state assoc :balls (:body response))))))
 
+(defn- delete-ball! [id]
+  (go (let [response (<! (http/delete (str (-> @app-state :settings :api-url) "/balls/" id)
+                                      {:with-credentials? true}))]
+        (when (:success response)
+          (swap! app-state assoc :balls (:body response))))))
+
 ;; Public Functions
 (defn init! []
   (reset! app-state (assoc @app-state :balls []))
@@ -66,7 +72,7 @@
       (swap! app-state update :balls assoc ball-index new-ball)
       (save-balls! (:balls @app-state)))))
 
-(defn delete-ball! [id]
+(defn remove-ball! [id]
   (let [balls (:balls @app-state)
         ball-index (.findIndex (clj->js balls) #(= (.-id %) id))
         old-ball (get balls ball-index)]
@@ -74,7 +80,7 @@
       (add-to-history! :delete old-ball)
       (swap! app-state update :balls #(vec (concat (subvec % 0 ball-index)
                                                   (subvec % (inc ball-index)))))
-      (save-balls! (:balls @app-state)))))
+      (delete-ball! id))))
 
 (defn start-edit! [id]
   (let [balls (:balls @app-state)

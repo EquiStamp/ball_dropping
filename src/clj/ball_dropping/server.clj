@@ -3,71 +3,81 @@
             [ring.middleware.cors :refer [wrap-cors]]
             [reitit.ring :as ring]
             [muuntaja.core :as m]
-            [reitit.ring.middleware.muuntaja :as muuntaja]))
+            [reitit.ring.middleware.muuntaja :as muuntaja]
+            [cognitect.aws.client.api :as aws]))
 
-;; Initialize state with hardcoded example data
-(def state (atom {:balls 
-  [{:id "1" :name "Fix authentication bug" :responsible "Alice" :ticket "GH-123" :importance "critical" 
-    :due-date "2024-01-25T10:00:00Z" :last-checked "2024-01-19T15:30:00Z" :resolved false}
-   {:id "2" :name "Update documentation" :responsible "Bob" :importance "low" 
-    :due-date "2025-02-01T10:00:00Z" :last-checked "2024-01-20T09:00:00Z" :resolved false}
-   {:id "3" :name "Refactor database layer" :responsible "Charlie" :ticket "GH-456" :importance "high"
-    :due-date "2024-01-28T10:00:00Z" :last-checked nil :resolved false}
-   {:id "4" :name "Add unit tests" :responsible "Diana" :ticket "GH-789" :importance "medium"
-    :due-date "2025-01-30T10:00:00Z" :last-checked "2024-01-18T11:20:00Z" :resolved false}
-   {:id "5" :name "Implement search feature" :responsible "Eve" :importance "medium"
-    :due-date "2025-02-05T10:00:00Z" :last-checked "2024-01-15T16:45:00Z" :resolved true}
-   {:id "6" :name "Optimize performance" :responsible "Frank" :ticket "GH-234" :importance "high"
-    :due-date "2024-01-26T10:00:00Z" :last-checked "2024-01-20T14:10:00Z" :resolved false}
-   {:id "7" :name "Setup CI/CD pipeline" :responsible "Grace" :importance "medium"
-    :due-date "2025-02-10T10:00:00Z" :last-checked nil :resolved false}
-   {:id "8" :name "Add error handling" :responsible "Henry" :ticket "GH-567" :importance "high"
-    :due-date "2025-01-29T10:00:00Z" :last-checked "2024-01-19T10:30:00Z" :resolved false}
-   {:id "9" :name "Update dependencies" :responsible "Alice" :importance "low"
-    :due-date "2025-02-15T10:00:00Z" :last-checked "2024-01-17T09:15:00Z" :resolved true}
-   {:id "10" :name "Fix mobile layout" :responsible "Bob" :ticket "GH-890" :importance "medium"
-    :due-date "2024-01-27T10:00:00Z" :last-checked "2024-01-20T11:45:00Z" :resolved false}
-   {:id "11" :name "Add dark mode" :responsible "Charlie" :importance "low"
-    :due-date "2024-02-20T10:00:00Z" :last-checked nil :resolved false}
-   {:id "12" :name "Implement caching" :responsible "Diana" :ticket "GH-345" :importance "high"
-    :due-date "2024-01-31T10:00:00Z" :last-checked "2024-01-18T13:20:00Z" :resolved false}
-   {:id "13" :name "Setup monitoring" :responsible "Eve" :importance "critical"
-    :due-date "2024-01-24T10:00:00Z" :last-checked "2024-01-20T16:00:00Z" :resolved false}
-   {:id "14" :name "Add logging" :responsible "Frank" :ticket "GH-678" :importance "medium"
-    :due-date "2024-02-03T10:00:00Z" :last-checked "2024-01-16T14:30:00Z" :resolved true}
-   {:id "15" :name "Security audit" :responsible "Grace" :importance "critical"
-    :due-date "2024-01-25T10:00:00Z" :last-checked "2024-01-19T11:15:00Z" :resolved false}
-   {:id "16" :name "Code review feedback" :responsible "Henry" :importance "medium"
-    :due-date "2024-01-26T10:00:00Z" :last-checked "2024-01-20T10:00:00Z" :resolved false}
-   {:id "17" :name "Update API docs" :responsible "Alice" :ticket "GH-901" :importance "low"
-    :due-date "2024-02-08T10:00:00Z" :last-checked nil :resolved false}
-   {:id "18" :name "Fix memory leak" :responsible "Bob" :importance "critical"
-    :due-date "2024-01-23T10:00:00Z" :last-checked "2024-01-20T15:45:00Z" :resolved false}
-   {:id "19" :name "Add accessibility features" :responsible "Charlie" :ticket "GH-234" :importance "high"
-    :due-date "2024-01-29T10:00:00Z" :last-checked "2024-01-17T11:30:00Z" :resolved false}
-   {:id "20" :name "Setup backup system" :responsible "Diana" :importance "high"
-    :due-date "2024-01-30T10:00:00Z" :last-checked "2024-01-19T14:20:00Z" :resolved false}]}))
+(def dynamodb (aws/client {:api :dynamodb :region "us-east-1"}))
 
-(defn get-balls [_]
-  {:status 200
-   :body (:balls @state)})
+(defn to-dynamo [value]
+  (if (string? value)
+    {:S value}
+    value))
+
+
+(defn from-dynamo [value]
+  (if (map? value)
+    (:S value)
+    value))
+
+(defn get-all-balls []
+  (let [result (aws/invoke dynamodb {:op :Scan :request {:TableName "balls"}})]
+    (->> result
+         :Items
+         (filter #(-> % :id :S))
+         (map (fn [item]
+                {:id (-> item :id from-dynamo)
+                 :name (-> item :name from-dynamo)
+                 :responsible (-> item :responsible from-dynamo)
+                 :ticket (-> item :ticket from-dynamo)
+                 :importance (-> item :importance from-dynamo)
+                 :due-date (-> item :due-date from-dynamo)
+                 :last-checked (-> item :last-checked from-dynamo)
+                 :resolved (-> item :resolved from-dynamo #{"true"})})))))
+
+(defn parse-ball [ball]
+  {:id (to-dynamo (:id ball))
+   :name (to-dynamo (:name ball))
+   :responsible (to-dynamo (:responsible ball))
+   :ticket (to-dynamo (or (:ticket ball) ""))
+   :importance (to-dynamo (:importance ball))
+   :due-date (to-dynamo (:due-date ball))
+   :last-checked (to-dynamo (or (:last-checked ball) ""))
+   :resolved (to-dynamo (str (:resolved ball)))})
+
+
+(defn save-ball [ball]
+  (aws/invoke dynamodb {:op :PutItem :request {:TableName "balls" :Item ball}}))
+
+(defn save-all-balls [balls]
+    (->> balls
+         (map parse-ball)
+         (map save-ball)
+         doall))
+
+(defn get-balls [_] {:status 200 :body (get-all-balls)})
 
 (defn save-balls [{:keys [body-params]}]
-  (swap! state assoc :balls body-params)
-  {:status 200
-   :body (:balls @state)})
+  (save-all-balls body-params)
+  {:status 200 :body (get-all-balls)})
+
+(defn delete-ball [id] (aws/invoke dynamodb {:op :DeleteItem :request {:TableName "balls" :Key {:id {:S id}}}}))
+
+(defn handle-delete-ball [{:keys [path-params]}]
+  (delete-ball (:id path-params))
+  {:status 200 :body (get-all-balls)})
 
 (def app
   (ring/ring-handler
    (ring/router
     [["/api"
       ["/balls" {:get get-balls
-                 :post save-balls}]]]
+                 :post save-balls}]
+      ["/balls/:id" {:delete handle-delete-ball}]]]
     {:data {:muuntaja m/instance
             :middleware [muuntaja/format-middleware
                         [wrap-cors
                          :access-control-allow-origin [#"http://localhost:8000"]
-                         :access-control-allow-methods [:get :post :options]
+                         :access-control-allow-methods [:get :post :options :delete]
                          :access-control-allow-credentials "true"
                          :access-control-allow-headers ["Content-Type" "Accept"]]]}})
    (ring/create-default-handler)))
