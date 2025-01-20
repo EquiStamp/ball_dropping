@@ -10,13 +10,27 @@
         ring/ring-core {:mvn/version "1.11.0"}
         ring/ring-jetty-adapter {:mvn/version "1.9.5"}
         ring-cors/ring-cors {:mvn/version "0.1.13"}
-        metosin/reitit {:mvn/version "0.5.18"}
+        metosin/reitit {:mvn/version "0.7.0-alpha7"}
         metosin/muuntaja {:mvn/version "0.6.8"}
         org.slf4j/slf4j-simple {:mvn/version "2.0.12"}
         com.cognitect.aws/api {:mvn/version "0.8.686"}
         com.cognitect.aws/endpoints {:mvn/version "1.1.12.504"}
-        com.cognitect.aws/dynamodb {:mvn/version "848.2.1413.0"}}
+        com.cognitect.aws/dynamodb {:mvn/version "848.2.1413.0"}
+        com.amazonaws/aws-lambda-java-core {:mvn/version "1.2.3"}
+        com.amazonaws/aws-lambda-java-events {:mvn/version "3.11.4"}
+        software.amazon.awssdk/dynamodb {:mvn/version "2.21.33"}}
  
  :aliases
- {:server {:main-opts ["-m" "ball-dropping.server"]}
-  :dev {:extra-deps {}}}} 
+ {:build {:deps {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}}
+          :ns-default build}
+  :server {:main-opts ["-m" "ball-dropping.server"]}
+  :shadow-cljs {:extra-deps {thheller/shadow-cljs {:mvn/version "2.26.2"}}
+                :main-opts ["-m" "shadow.cljs.devtools.cli"]}
+  :test {:extra-paths ["classes"]  ; Add classes directory to test classpath
+         :extra-deps {}}
+  :dev {:extra-deps {}}
+  
+  ;; Add AOT compilation configuration
+  :aot {:extra-paths ["classes"]
+        :jvm-opts ["-Dclojure.compile.path=classes"]
+        :main-opts ["-e" "(compile 'ball-dropping.lambda)"]}}} 

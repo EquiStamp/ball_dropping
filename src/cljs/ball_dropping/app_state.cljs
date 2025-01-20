@@ -3,10 +3,15 @@
 
 (def storage-key "ball-dropping-settings")
 
+(def default-api-url 
+  (if (= js/window.location.hostname "localhost")
+    "http://localhost:3000/api"
+    (str js/window.location.protocol "//" "REPLACE_WITH_API_URL")))
+
 (defn load-settings []
   (if-let [stored (.getItem js/localStorage storage-key)]
     (js->clj (.parse js/JSON stored) :keywordize-keys true)
-    {:api-url "http://localhost:3000/api"}))
+    {:api-url default-api-url}))
 
 (def app-state (r/atom {:balls []
                        :history []

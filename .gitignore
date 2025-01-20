@@ -41,3 +41,14 @@ pom.xml.asc
 /dist
 
 /public/js/
+
+# Terraform
+*.tfvars
+*.tfvars.json
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+.terraform.lock.hcl
+
+# Keep example tfvars
+!example.tfvars
