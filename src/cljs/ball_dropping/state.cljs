@@ -11,7 +11,7 @@
   (assoc data
          :id (generate-id)
          :created-at (.toISOString (js/Date.))
-         :last-checked nil
+         :last-checked (.toISOString (js/Date.))
          :resolved false))
 
 (defn- add-to-history! [action previous-state]
@@ -50,27 +50,23 @@
   (let [new-ball (make-ball data)]
     (add-to-history! :add nil)
     (swap! app-state update :balls conj new-ball)
-    (save-balls! (:balls @app-state))))
+    (save-balls! [new-ball])))
+
+(defn update-ball! [updated-ball]
+  (let [balls (:balls @app-state)
+        ball-index (.findIndex (clj->js balls) #(= (.-id %) (:id updated-ball)))]
+    (when (>= ball-index 0)
+      (swap! app-state update :balls assoc ball-index updated-ball)
+      (swap! app-state dissoc :editing)
+      (save-balls! [updated-ball]))))
 
 (defn check-ball! [id]
-  (let [balls (:balls @app-state)
-        ball-index (.findIndex (clj->js balls) #(= (.-id %) id))
-        old-ball (get balls ball-index)
-        new-ball (assoc old-ball :last-checked (.toISOString (js/Date.)))]
-    (when (>= ball-index 0)
-      (add-to-history! :check old-ball)
-      (swap! app-state update :balls assoc ball-index new-ball)
-      (save-balls! (:balls @app-state)))))
+  (when-let [ball (->> @app-state :balls (filter #(= (:id %) id)) first)]
+    (update-ball! (assoc ball :last-checked (.toISOString (js/Date.))))))
 
 (defn resolve-ball! [id]
-  (let [balls (:balls @app-state)
-        ball-index (.findIndex (clj->js balls) #(= (.-id %) id))
-        old-ball (get balls ball-index)
-        new-ball (update old-ball :resolved not)]
-    (when (>= ball-index 0)
-      (add-to-history! :resolve old-ball)
-      (swap! app-state update :balls assoc ball-index new-ball)
-      (save-balls! (:balls @app-state)))))
+  (when-let [ball (->> @app-state :balls (filter #(= (:id %) id)) first)]
+    (update-ball! (assoc ball :resolved (not (:resolved ball))))))
 
 (defn remove-ball! [id]
   (let [balls (:balls @app-state)
@@ -87,18 +83,10 @@
         ball (->> balls
                   (filter #(= (:id %) id))
                   first)]
-    (println "ball" ball id)
     (when ball
       (add-to-history! :edit ball)
       (swap! app-state assoc :editing ball))))
 
-(defn update-ball! [updated-ball]
-  (let [balls (:balls @app-state)
-        ball-index (.findIndex (clj->js balls) #(= (.-id %) (:id updated-ball)))]
-    (when (>= ball-index 0)
-      (swap! app-state update :balls assoc ball-index updated-ball)
-      (swap! app-state dissoc :editing)
-      (save-balls! (:balls @app-state)))))
 
 (defn undo! []
   (when-let [last-action (peek (:history @app-state))]

@@ -35,11 +35,17 @@
         [:option {:value "medium"} "Medium"]
         [:option {:value "high"} "High"]
         [:option {:value "critical"} "Critical"]]
-       [:input {:type "datetime-local"
+       [:input {:type "date"
                 :value (:due-date @form-data)
-                :on-change #(swap! form-data assoc :due-date (.. % -target -value))}]
+                :on-change #(do 
+                             (println "Calendar onChange:" (.. % -target -value))
+                             (swap! form-data assoc :due-date (.. % -target -value)))
+                :on-blur #(do
+                           (println "Calendar onBlur:" (.. % -target -value))
+                           (swap! form-data assoc :due-date (.. % -target -value)))}]
        [:button {:on-click #(when (and (not-empty (:name @form-data))
                                      (not-empty (:responsible @form-data)))
+                            (println "Submitting form data:" @form-data)
                             (state/add-ball! @form-data)
                             (reset! form-data {:name ""
                                              :responsible ""
@@ -83,7 +89,7 @@
 (defn ball-list []
   [:div.ball-list
    (for [ball (->> (:balls @app-state)
-                   (sort-by (juxt :resolved (comp - ball/get-urgency-score))))]
+                   (sort-by (juxt #(if (:resolved %) 1 0) (comp - ball/get-urgency-score))))]
      ^{:key (:id ball)} [ball-item ball])])
 
 (defn controls []
@@ -121,7 +127,7 @@
              [:option {:value "medium"} "Medium"]
              [:option {:value "high"} "High"]
              [:option {:value "critical"} "Critical"]]
-            [:input {:type "datetime-local"
+            [:input {:type "date"
                     :value (:due-date @form-data)
                     :on-change #(swap! form-data assoc :due-date (.. % -target -value))}]
             [:div.edit-form-buttons

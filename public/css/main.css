@@ -158,12 +158,13 @@ body {
     flex-shrink: 0;
     gap: 4px;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, background-color 0.2s;
     position: absolute;
     right: 15px;
     top: 15px;
     border-radius: 4px;
-    padding: 2px;
+    padding: 4px;
+    background: white;
 }
 
 .ball:hover .ball-actions {
@@ -188,7 +189,7 @@ body {
 
 .ball-actions div:hover {
     opacity: 1;
-    background: rgba(0,0,0,0.05);
+    background: rgba(0,0,0,0.1);
 }
 
 /* Tooltips */
@@ -214,6 +215,7 @@ body {
 .ball-actions div:hover::after {
     opacity: 1;
     visibility: visible;
+    color: white;
 }
 
 /* Remove old tooltip content definitions */
@@ -478,5 +480,69 @@ body {
 
 .save-button:hover {
   background: #45a049;
+}
+
+/* Status indicators */
+.ball.overdue .ball-actions div:hover {
+    background: rgba(220,53,69,0.25);
+}
+
+.ball.due-soon .ball-actions div:hover {
+    background: rgba(255,149,0,0.25);
+}
+
+.ball.checked-today .ball-actions div:hover {
+    background: rgba(127,176,105,0.25);
+}
+
+.ball.checked-yesterday .ball-actions div:hover {
+    background: rgba(255,149,0,0.25);
+}
+
+.ball.needs-check .ball-actions div:hover {
+    background: rgba(220,53,69,0.25);
+}
+
+.importance-critical .ball-actions div:hover {
+    background: rgba(220,53,69,0.25);
+}
+
+.importance-high .ball-actions div:hover {
+    background: rgba(255,149,0,0.25);
+}
+
+.importance-medium .ball-actions div:hover {
+    background: rgba(127,176,105,0.25);
+}
+
+.importance-low .ball-actions div:hover {
+    background: rgba(74,111,165,0.25);
+}
+
+/* Status-specific backgrounds for action buttons container */
+.ball.overdue .ball-actions,
+.importance-critical .ball-actions {
+    background: #ffd9d9;
+}
+
+.ball.due-soon .ball-actions,
+.ball.checked-yesterday .ball-actions,
+.importance-high .ball-actions {
+    background: #ffe4bf;
+}
+
+.ball.checked-today .ball-actions,
+.importance-medium .ball-actions {
+    background: #d9ebd9;
+}
+
+.importance-low .ball-actions {
+    background: #d9e1f2;
+}
+
+/* Action button hover states */
+.ball-actions div:hover {
+    opacity: 1;
+    background: rgba(0,0,0,0.1);
 }
 

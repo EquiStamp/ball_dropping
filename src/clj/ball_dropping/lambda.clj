@@ -2,10 +2,10 @@
   (:gen-class
    :name ball_dropping.lambda.Handler
    :implements [com.amazonaws.services.lambda.runtime.RequestHandler])
-  (:require [ball-dropping.server :as server])
+  (:require [ball-dropping.server :as server]
+            [muuntaja.core :as m])
   (:import [com.amazonaws.services.lambda.runtime Context LambdaLogger]
            [com.amazonaws.services.lambda.runtime.events 
-            APIGatewayV2HTTPEvent 
             APIGatewayV2HTTPResponse]
            [java.util Base64 HashMap]
            [java.io ByteArrayInputStream]))
@@ -33,6 +33,17 @@
       (.setHeaders (HashMap. (or headers-str {})))
       (.setBody body-str))))
 
+(defn decode-params [params]
+  (cond
+    (map? params) (->> params
+                      (map (fn [[k v]] [(keyword k) v]))
+                      (into {}))
+    (string? params) (try
+                      (m/decode "application/json" (.getBytes params))
+                      (catch Exception _
+                        params))
+    :else params))
+
 (defn extract-request-from-map [event]
   (let [path (get event "rawPath")]
     {:request-method (-> (get-in event ["requestContext" "http" "method"] "GET")
@@ -41,18 +52,10 @@
      :uri path
      :headers (get event "headers" {})
      :body-params (when-let [body (get event "body")]
-                   (if (get event "isBase64Encoded" false)
-                     (String. (.decode (Base64/getDecoder) body))
-                     body))}))
+                   (decode-params (if (get event "isBase64Encoded" false)
+                                    (String. (.decode (Base64/getDecoder) body))
+                                    body)))}))
 
-(defn extract-request-from-event [^APIGatewayV2HTTPEvent event]
-  {:request-method (-> event .getRequestContext .getHttp .getMethod .toLowerCase keyword)
-   :uri (.getRawPath event)
-   :headers (into {} (.getHeaders event))
-   :body-params (when-let [body (.getBody event)]
-                 (if (.getIsBase64Encoded event)
-                   (String. (.decode (Base64/getDecoder) body))
-                   body))})
 
 (defn -handleRequest [this event ^Context context]
   (binding [*lambda-logger* (.getLogger context)]
